@@ -27,68 +27,64 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
 
+    # Gerekli dosyaların varlığını kontrol et
+    if not os.path.exists(files_dir) or not glob.glob(os.path.join(files_dir, "*.pdf")):
+        st.error(f"'{files_dir}' klasörü veya içinde PDF dosyaları bulunamadı. Lütfen bu klasörü ve dosyaları ekleyin.")
+        return None
+
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    
+    # Mevcut veritabanını yüklemeyi dene
     if os.path.exists(db_path) and os.path.isdir(db_path):
-        st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        vectorstore = Chroma(
-            collection_name="parent_child_collection",
-            embedding_function=embeddings,
-            persist_directory=db_path
-        )
-        store = InMemoryStore() 
-        retriever = ParentDocumentRetriever(
-            vectorstore=vectorstore,
-            docstore=store,
-            parent_splitter=RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200),
-            child_splitter=RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50),
-        )
-        st.success("Veritabanı başarıyla yüklendi.")
-    else:
-        st.info("Veritabanı bulunamadı. Yeni bir veritabanı oluşturuluyor...")
-        
-        if not os.path.exists(files_dir):
-            st.error(f"'{files_dir}' klasörü bulunamadı. Lütfen bu klasörü oluşturun ve içine PDF dosyalarınızı yerleştirin.")
-            return None
-        
-        pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
-        
-        if not pdf_files:
-            st.error(f"'{files_dir}' klasöründe hiçbir PDF dosyası bulunamadı. Lütfen PDF dosyalarınızı bu klasöre yerleştirin.")
-            return None
-        
-        all_documents = []
-        for file_path in pdf_files:
-            st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
-            loader = PyPDFLoader(file_path)
-            all_documents.extend(loader.load())
-
-        st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
-
-        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-        child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
-
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        
-        # Bu kısım, ValidationError hatasını çözmek için güncellendi
-        vectorstore = Chroma(
-            collection_name="parent_child_collection",
-            embedding_function=embeddings,
-            client_settings=Settings(
-                chroma_db_impl="duckdb+parquet",
-                persist_directory="."  # <<< Burası güncellendi
+        try:
+            st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+            vectorstore = Chroma(
+                collection_name="parent_child_collection",
+                embedding_function=embeddings,
+                persist_directory=db_path
             )
-        )
-        store = InMemoryStore()
+            store = InMemoryStore() 
+            retriever = ParentDocumentRetriever(
+                vectorstore=vectorstore,
+                docstore=store,
+                parent_splitter=RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200),
+                child_splitter=RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50),
+            )
+            st.success("Veritabanı başarıyla yüklendi.")
+            return retriever
+        except Exception as e:
+            st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
+            # Hata durumunda yeniden oluşturmaya geç
+            
+    # Veritabanı yoksa veya yüklenemediyse, sıfırdan oluştur
+    st.info("Veritabanı bulunamadı. Yeni bir veritabanı oluşturuluyor...")
+    pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
+    all_documents = []
+    for file_path in pdf_files:
+        st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+        loader = PyPDFLoader(file_path)
+        all_documents.extend(loader.load())
 
-        retriever = ParentDocumentRetriever(
-            vectorstore=vectorstore,
-            docstore=store,
-            parent_splitter=parent_splitter,
-            child_splitter=child_splitter,
-        )
-        retriever.add_documents(all_documents)
-        st.success("Gelişmiş indeksleme ve bellek tabanlı geri alma sistemi hazır.")
+    st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
 
+    # Veritabanı oluştur
+    vectorstore = Chroma.from_documents(
+        documents=all_documents,
+        embedding=embeddings,
+        collection_name="parent_child_collection",
+        persist_directory=db_path
+    )
+    store = InMemoryStore()
+
+    retriever = ParentDocumentRetriever(
+        vectorstore=vectorstore,
+        docstore=store,
+        parent_splitter=parent_splitter,
+        child_splitter=child_splitter,
+    )
+    st.success("Gelişmiş indeksleme ve bellek tabanlı geri alma sistemi hazır.")
     return retriever
 
 # --- Streamlit Arayüzü ---
