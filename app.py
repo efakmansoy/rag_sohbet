@@ -2,19 +2,16 @@ import os
 import glob
 import streamlit as st
 import sys
-import pysqlite3 # <<< Bu satırı ekledik
+import pysqlite3
 
+# pysqlite3'ü sistemin varsayılan sqlite3'ü olarak ayarla
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
 # Yeni ve güncellenmiş import'lar
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
-
-# Ek import'lar
 from chromadb.config import Settings
-
-# Diğer gerekli import'lar
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
@@ -25,58 +22,72 @@ from langchain.retrievers import ParentDocumentRetriever
 from langchain.storage import InMemoryStore
 
 # --- RAG Sisteminin Hazırlanması ---
-# Streamlit Cloud'da her oturum için yeniden çalışır
 @st.cache_resource
 def setup_rag_system():
-    """
-    RAG sistemini hazırlar ve belleğe alır.
-    Bulut dağıtımı için veritabanını bellekte tutar.
-    """
-    st.info("Bulut ortamı için veritabanı bellekte yeniden oluşturuluyor...")
+    db_path = "./chroma_db"
     files_dir = "./files"
-    
-    if not os.path.exists(files_dir):
-        st.error(f"'{files_dir}' klasörü bulunamadı. Lütfen bu klasörü oluşturun ve içine PDF dosyalarınızı yerleştirin.")
-        return None
-    
-    pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
-    
-    if not pdf_files:
-        st.error(f"'{files_dir}' klasöründe hiçbir PDF dosyası bulunamadı. Lütfen PDF dosyalarınızı bu klasöre yerleştirin.")
-        return None
-    
-    all_documents = []
-    for file_path in pdf_files:
-        st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
-        loader = PyPDFLoader(file_path)
-        all_documents.extend(loader.load())
 
-    st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
-
-    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
-    child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
-
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    
-    # Bellekte çalışan Chroma veritabanı
-    vectorstore = Chroma(
-        collection_name="parent_child_collection",
-        embedding_function=embeddings,
-        client_settings=Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory=None,
+    if os.path.exists(db_path) and os.path.isdir(db_path):
+        st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        vectorstore = Chroma(
+            collection_name="parent_child_collection",
+            embedding_function=embeddings,
+            persist_directory=db_path
         )
-    )
-    store = InMemoryStore()
+        store = InMemoryStore() 
+        retriever = ParentDocumentRetriever(
+            vectorstore=vectorstore,
+            docstore=store,
+            parent_splitter=RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200),
+            child_splitter=RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50),
+        )
+        st.success("Veritabanı başarıyla yüklendi.")
+    else:
+        st.info("Veritabanı bulunamadı. Yeni bir veritabanı oluşturuluyor...")
+        
+        if not os.path.exists(files_dir):
+            st.error(f"'{files_dir}' klasörü bulunamadı. Lütfen bu klasörü oluşturun ve içine PDF dosyalarınızı yerleştirin.")
+            return None
+        
+        pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
+        
+        if not pdf_files:
+            st.error(f"'{files_dir}' klasöründe hiçbir PDF dosyası bulunamadı. Lütfen PDF dosyalarınızı bu klasöre yerleştirin.")
+            return None
+        
+        all_documents = []
+        for file_path in pdf_files:
+            st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+            loader = PyPDFLoader(file_path)
+            all_documents.extend(loader.load())
 
-    retriever = ParentDocumentRetriever(
-        vectorstore=vectorstore,
-        docstore=store,
-        parent_splitter=parent_splitter,
-        child_splitter=child_splitter,
-    )
-    retriever.add_documents(all_documents)
-    st.success("Gelişmiş indeksleme ve bellek tabanlı geri alma sistemi hazır.")
+        st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+
+        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+        child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        
+        # Bu kısım, ValidationError hatasını çözmek için güncellendi
+        vectorstore = Chroma(
+            collection_name="parent_child_collection",
+            embedding_function=embeddings,
+            client_settings=Settings(
+                chroma_db_impl="duckdb+parquet",
+                persist_directory="."  # <<< Burası güncellendi
+            )
+        )
+        store = InMemoryStore()
+
+        retriever = ParentDocumentRetriever(
+            vectorstore=vectorstore,
+            docstore=store,
+            parent_splitter=parent_splitter,
+            child_splitter=child_splitter,
+        )
+        retriever.add_documents(all_documents)
+        st.success("Gelişmiş indeksleme ve bellek tabanlı geri alma sistemi hazır.")
 
     return retriever
 
@@ -102,8 +113,8 @@ retriever = setup_rag_system()
 if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0.4,
+            model="gemini-1.5-flash",
+            temperature=0.7,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
         st.session_state.memory = ConversationSummaryMemory(
