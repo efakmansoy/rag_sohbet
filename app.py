@@ -2,7 +2,7 @@ import os
 import glob
 import streamlit as st
 import sys
-import pysqlite3
+import pysqlite3 # <<< Bu satır en üste taşındı
 
 # pysqlite3'ü sistemin varsayılan sqlite3'ü olarak ayarla
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
@@ -27,14 +27,12 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
 
-    # Gerekli dosyaların varlığını kontrol et
     if not os.path.exists(files_dir) or not glob.glob(os.path.join(files_dir, "*.pdf")):
         st.error(f"'{files_dir}' klasörü veya içinde PDF dosyaları bulunamadı. Lütfen bu klasörü ve dosyaları ekleyin.")
         return None
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
-    # Mevcut veritabanını yüklemeyi dene
     if os.path.exists(db_path) and os.path.isdir(db_path):
         try:
             st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
@@ -54,9 +52,7 @@ def setup_rag_system():
             return retriever
         except Exception as e:
             st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
-            # Hata durumunda yeniden oluşturmaya geç
             
-    # Veritabanı yoksa veya yüklenemediyse, sıfırdan oluştur
     st.info("Veritabanı bulunamadı. Yeni bir veritabanı oluşturuluyor...")
     pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
     all_documents = []
@@ -69,7 +65,6 @@ def setup_rag_system():
     parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
     child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
 
-    # Veritabanı oluştur
     vectorstore = Chroma.from_documents(
         documents=all_documents,
         embedding=embeddings,
