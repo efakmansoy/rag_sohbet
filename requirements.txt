@@ -8,4 +8,4 @@ langchain-google-genai
 sentence-transformers
 pypdf
 chromadb
-typing-extensions==4.5.0
+typing-extensions>=4.6.0
