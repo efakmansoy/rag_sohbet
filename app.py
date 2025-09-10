@@ -75,7 +75,7 @@ def setup_rag_system():
     st.success("Veritabanı başarıyla oluşturuldu.")
     return retriever
 
-st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
+st.set_page_config(page_title="2204-A Yarışma Asistanı", layout="wide")
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
 
@@ -155,3 +155,4 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+
