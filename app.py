@@ -4,78 +4,102 @@ import streamlit as st
 import sys
 import pysqlite3
 
+# pysqlite3'ü sistemin varsayılan sqlite3'ü olarak ayarla
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
+# Gerekli kütüphaneleri içe aktarın
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
-from chromadb.config import Settings
-from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
+from langchain_community.document_loaders import PyPDFLoader, UnstructuredImageLoader, WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationSummaryMemory
 from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_community.vectorstores.utils import filter_complex_metadata
 
+# --- RAG Sisteminin Hazırlanması ---
 @st.cache_resource
 def setup_rag_system():
-    db_path = "./chroma_db"
-    files_dir = "./files"
+    # Tüm durum mesajlarını içeren kalıcı bir kapsayıcı oluşturun
+    info_container = st.empty()
     
-    print("Sistem başlatılıyor...")
+    with info_container.container():
+        st.info("Sistem başlatılıyor...")
 
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    
-    if os.path.exists(db_path) and os.path.isdir(db_path):
-        try:
-            print("Mevcut veritabanı bulunuyor. Yükleniyor...")
-            vectorstore = Chroma(
-                collection_name="parent_child_collection",
-                embedding_function=embeddings,
-                persist_directory=db_path
-            )
-           
-            retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
-            print("Veritabanı başarıyla yüklendi.")
-            return retriever
-        except Exception as e:
-            print(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
-            
-    print("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
-    
-    pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
-    all_documents = []
-    if pdf_files:
-        for file_path in pdf_files:
-            print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
-            loader = PyPDFLoader(file_path)
-            all_documents.extend(loader.load())
+        db_path = "./chroma_db"
+        files_dir = "./files"
+        
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        
+        # Mevcut veritabanını yüklemeyi dene
+        if os.path.exists(db_path) and os.path.isdir(db_path):
+            try:
+                st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+                vectorstore = Chroma(
+                    collection_name="parent_child_collection",
+                    embedding_function=embeddings,
+                    persist_directory=db_path
+                )
+                retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+                st.success("Veritabanı başarıyla yüklendi.")
+                return retriever
+            except Exception as e:
+                st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
+                
+        st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+        
+        # PDF ve resim dosyalarını yükle
+        pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
+        image_files = glob.glob(os.path.join(files_dir, "*.png")) + glob.glob(os.path.join(files_dir, "*.jpg"))
+        all_documents = []
+        
+        if pdf_files:
+            for file_path in pdf_files:
+                st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+                # Metin PDF'leri için PyPDFLoader kullanın
+                loader = PyPDFLoader(file_path)
+                all_documents.extend(loader.load())
 
-    web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-    print(f"'{web_url}' adresindeki sayfa yükleniyor...")
-    web_loader = WebBaseLoader(web_url)
-    all_documents.extend(web_loader.load())
+        if image_files:
+            for file_path in image_files:
+                st.info(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
+                # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
+                loader = UnstructuredImageLoader(file_path)
+                all_documents.extend(loader.load())
 
-    if not all_documents:
-        print("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
-        return None
+        # Web sayfasını yükle
+        web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
+        st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
+        web_loader = WebBaseLoader(web_url)
+        all_documents.extend(web_loader.load())
 
-    print(f"Toplam {len(all_documents)} sayfa yüklendi.")
-    
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    split_documents = text_splitter.split_documents(all_documents)
+        if not all_documents:
+            st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
+            return None
 
-    vectorstore = Chroma.from_documents(
-        documents=split_documents,
-        embedding=embeddings,
-        collection_name="parent_child_collection",
-        persist_directory=db_path
-    )
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
-    st.success("Veritabanı başarıyla oluşturuldu.")
-    return retriever
+        st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+        
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        split_documents = text_splitter.split_documents(all_documents)
+        
+        # Karmaşık meta verileri filtreleyin
+        filtered_documents = filter_complex_metadata(split_documents)
 
-st.set_page_config(page_title="2204-A Yarışma Asistanı", layout="wide")
+        vectorstore = Chroma.from_documents(
+            documents=filtered_documents,
+            embedding=embeddings,
+            collection_name="parent_child_collection",
+            persist_directory=db_path
+        )
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+        st.success("Veritabanı başarıyla oluşturuldu.")
+        return retriever
+
+# --- Streamlit Uygulamasının Ana Bölümü ---
+st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
+
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
 
@@ -97,7 +121,7 @@ if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
-            temperature=0.7,
+            temperature=0.6,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
         st.session_state.memory = ConversationSummaryMemory(
@@ -106,11 +130,9 @@ if retriever:
             return_messages=True
         )
         
-        # Güncellenmiş Prompt
         custom_prompt_template = """
 Sen, TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması hakkında öğrenci ve danışmanlara yardımcı olan bir asistansın. Görevin, onlara yarışmanın şartnameleri, başvuru ve rapor süreçleri gibi konularda, **sadece verilen belgelerden edindiğin bilgilere dayanarak** rehberlik etmektir.
-Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış.  Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
-Öneriler ve tavsiyeler verirken, TÜBİTAK'ın resmi politikalarına ve yönergelerine uygun olmasına dikkat et. Öneri verirken yaratıcı ol ve verilen belgeleri kullanmak zorunda değilsin sadece öneri verirken.
+Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış. Eğer hiçbir şekilde ilgili bilgi bulunamıyorsa, kibar bir şekilde **"Verilen belgelerde bu konuda spesifik bir bilgi bulunmamaktadır."** şeklinde yanıt ver. Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
 
 Konuşma Geçmişi:
 {chat_history}
@@ -154,6 +176,4 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
-
-
+    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
