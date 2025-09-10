@@ -5,9 +5,12 @@ langchain-text-splitters
 langchain-huggingface
 langchain-chroma
 langchain-google-genai
+langchain_huggingface
 sentence-transformers
 pypdf
 chromadb
 typing-extensions>=4.6.0
 pysqlite3-binary
 bs4
+accelerate
+transformers
