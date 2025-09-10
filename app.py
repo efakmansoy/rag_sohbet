@@ -4,13 +4,14 @@ import streamlit as st
 import sys
 import pysqlite3
 
+# pysqlite3'ü sistemin varsayılan sqlite3'ü olarak ayarla
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
+# Gerekli kütüphaneleri içe aktarın
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from chromadb.config import Settings
-# Bu loader'ın görüntüden metin çıkarma yeteneğini kullanacağız
 from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
@@ -27,8 +28,12 @@ def setup_rag_system():
     with info_container.container():
         st.info("Sistem başlatılıyor...")
 
+        db_path = "./chroma_db"
+        files_dir = "./files"
+        
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         
+        # Mevcut veritabanını yüklemeyi dene
         if os.path.exists(db_path) and os.path.isdir(db_path):
             try:
                 st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
@@ -45,15 +50,17 @@ def setup_rag_system():
                 
         st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
         
+        # PDF dosyalarını yükle
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         all_documents = []
         if pdf_files:
             for file_path in pdf_files:
                 st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
-                # extract_images=True parametresi ile görselleri metne dönüştürün
+                # extract_images=True parametresi ile görselleri metne dönüştürün (OCR)
                 loader = PyPDFLoader(file_path, extract_images=True)
                 all_documents.extend(loader.load())
 
+        # Web sayfasını yükle
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
         st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
@@ -78,12 +85,14 @@ def setup_rag_system():
         st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
-# --- Streamlit Arayüzü ---
+# --- Streamlit Uygulamasının Ana Bölümü ---
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
 
+# Başlık ve açıklama, her zaman sabit kalacak şekilde buraya alındı
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
 
+# Sohbet geçmişini başlatın
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "qa_chain" not in st.session_state:
@@ -93,16 +102,18 @@ if "llm" not in st.session_state:
 if "memory" not in st.session_state:
     st.session_state.memory = None
 
+# Sohbet geçmişini ekrana yazdırın
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# RAG sistemini kurun ve çalıştırın
 retriever = setup_rag_system()
 if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0.6,
+            model="gemini-1.5-flash",
+            temperature=0.7,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
         st.session_state.memory = ConversationSummaryMemory(
@@ -111,6 +122,7 @@ if retriever:
             return_messages=True
         )
         
+        # Güncellenmiş ve netleştirilmiş Prompt şablonu
         custom_prompt_template = """
 Sen, TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması hakkında öğrenci ve danışmanlara yardımcı olan bir asistansın. Görevin, onlara yarışmanın şartnameleri, başvuru ve rapor süreçleri gibi konularda, **sadece verilen belgelerden edindiğin bilgilere dayanarak** rehberlik etmektir.
 Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış. Eğer hiçbir şekilde ilgili bilgi bulunamıyorsa, kibar bir şekilde **"Verilen belgelerde bu konuda spesifik bir bilgi bulunmamaktadır."** şeklinde yanıt ver. Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
@@ -144,6 +156,7 @@ Yardımcı Asistanın Cevabı:
             combine_docs_chain_kwargs={"prompt": CUSTOM_PROMPT} 
         )
 
+    # Kullanıcıdan gelen mesajı al ve yanıt ver
     if prompt := st.chat_input("Buraya yazın..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -157,4 +170,4 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
