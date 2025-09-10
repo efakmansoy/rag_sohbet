@@ -26,7 +26,7 @@ def setup_rag_system():
     info_container = st.empty()
     
     with info_container.container():
-        st.info("Sistem başlatılıyor...")
+        print("Sistem başlatılıyor...")
 
         db_path = "./chroma_db"
         files_dir = "./files"
@@ -36,33 +36,33 @@ def setup_rag_system():
         # Mevcut veritabanını yüklemeyi dene
         if os.path.exists(db_path) and os.path.isdir(db_path):
             try:
-                st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+                print("Mevcut veritabanı bulunuyor. Yükleniyor...")
                 vectorstore = Chroma(
                     collection_name="parent_child_collection",
                     embedding_function=embeddings,
                     persist_directory=db_path
                 )
                 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-                st.success("Veritabanı başarıyla yüklendi.")
+                print("Veritabanı başarıyla yüklendi.")
                 return retriever
             except Exception as e:
-                st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
+                print(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
                 
-        st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
-        image_files = glob.glob(os.path.join(files_dir, "*.png")) + glob.glob(os.path.join(files_dir, "*.jpg"))
+        print("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+        image_files = glob.glob(os.path.join(files_dir, "*.PNG")) + glob.glob(os.path.join(files_dir, "*.jpg"))
         # PDF ve resim dosyalarını yükle
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         
         all_documents = []
         if image_files:
             for file_path in image_files:
-                st.info(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
+                print(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
                 # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
                 loader = UnstructuredImageLoader(file_path)
                 all_documents.extend(loader.load())
         if pdf_files:
             for file_path in pdf_files:
-                st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+                print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 # Metin PDF'leri için PyPDFLoader kullanın
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
@@ -71,7 +71,7 @@ def setup_rag_system():
 
         # Web sayfasını yükle
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-        st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
+        print(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
         all_documents.extend(web_loader.load())
 
@@ -79,7 +79,7 @@ def setup_rag_system():
             st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
             return None
 
-        st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+        print(f"Toplam {len(all_documents)} sayfa yüklendi.")
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         split_documents = text_splitter.split_documents(all_documents)
@@ -177,5 +177,6 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
 
 
