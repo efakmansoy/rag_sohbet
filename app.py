@@ -22,11 +22,13 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
     
-    # Durum mesajlarını sabit bir container'a yaz
-    status_container = st.empty()
-    
-    with status_container.container():
-        st.info("Sistem başlatılıyor...")
+    # Durum mesajlarını yalnızca bir kez göstermek için bayrak
+    if "status_shown" not in st.session_state:
+        st.session_state.status_shown = False
+    if not st.session_state.status_shown:
+        with st.sidebar:
+            st.info("Sistem başlatılıyor...")
+        st.session_state.status_shown = True
         
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         
@@ -38,36 +40,37 @@ def setup_rag_system():
                     persist_directory=db_path
                 )
                 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-                with status_container.container():
+                with st.sidebar:
                     st.success("Veritabanı başarıyla yüklendi.")
                 return retriever
             except Exception as e:
-                with status_container.container():
+                with st.sidebar:
                     st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
                 
-        st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+        with st.sidebar:
+            st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
         
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         all_documents = []
         if pdf_files:
             for file_path in pdf_files:
-                with status_container.container():
+                with st.sidebar:
                     st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
 
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-        with status_container.container():
+        with st.sidebar:
             st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
         all_documents.extend(web_loader.load())
 
         if not all_documents:
-            with status_container.container():
+            with st.sidebar:
                 st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
             return None
 
-        with status_container.container():
+        with st.sidebar:
             st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -80,16 +83,11 @@ def setup_rag_system():
             persist_directory=db_path
         )
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        with status_container.container():
+        with st.sidebar:
             st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
-
-# Durum mesajları için sabit üst container
-status_container = st.empty()
-with status_container.container():
-    st.info("Sistem başlatılıyor...")  # İlk yükleme mesajı
 
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
@@ -102,8 +100,10 @@ if "llm" not in st.session_state:
     st.session_state.llm = None
 if "memory" not in st.session_state:
     st.session_state.memory = None
+if "status_shown" not in st.session_state:
+    st.session_state.status_shown = False
 
-# Sohbet mesajları için ayrı bir alan
+# Sohbet alanı
 chat_container = st.container()
 with chat_container:
     for message in st.session_state.messages:
@@ -171,5 +171,5 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    with status_container.container():
+    with st.sidebar:
         st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
