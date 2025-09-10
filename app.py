@@ -93,7 +93,7 @@ def setup_rag_system():
             collection_name="parent_child_collection",
             persist_directory=db_path
         )
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 30})
         st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
@@ -121,7 +121,7 @@ if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
-            temperature=0.6,
+            temperature=0.7,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
         st.session_state.memory = ConversationSummaryMemory(
@@ -177,3 +177,4 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
