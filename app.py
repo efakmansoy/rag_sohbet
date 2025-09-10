@@ -93,7 +93,7 @@ def setup_rag_system():
             collection_name="parent_child_collection",
             persist_directory=db_path
         )
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 25})
         print("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
@@ -177,6 +177,7 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
 
 
 
