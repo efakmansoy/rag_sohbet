@@ -3,6 +3,7 @@ import glob
 import streamlit as st
 import sys
 import pysqlite3
+import time
 
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
@@ -26,8 +27,11 @@ def setup_rag_system():
     if "status_shown" not in st.session_state:
         st.session_state.status_shown = False
     if not st.session_state.status_shown:
-        with st.container():
+        status_placeholder = st.empty()
+        with status_placeholder.container():
             st.info("Sistem başlatılıyor...")
+        time.sleep(1)
+        status_placeholder.empty()
         st.session_state.status_shown = True
         
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -40,38 +44,59 @@ def setup_rag_system():
                     persist_directory=db_path
                 )
                 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-                with st.container():
+                status_placeholder = st.empty()
+                with status_placeholder.container():
                     st.success("Veritabanı başarıyla yüklendi.")
+                time.sleep(1)
+                status_placeholder.empty()
                 return retriever
             except Exception as e:
-                with st.container():
+                status_placeholder = st.empty()
+                with status_placeholder.container():
                     st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
+                time.sleep(1)
+                status_placeholder.empty()
                 
-        with st.container():
+        status_placeholder = st.empty()
+        with status_placeholder.container():
             st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+        time.sleep(1)
+        status_placeholder.empty()
         
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         all_documents = []
         if pdf_files:
             for file_path in pdf_files:
-                with st.container():
+                status_placeholder = st.empty()
+                with status_placeholder.container():
                     st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
+                time.sleep(1)
+                status_placeholder.empty()
 
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-        with st.container():
+        status_placeholder = st.empty()
+        with status_placeholder.container():
             st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
         all_documents.extend(web_loader.load())
+        time.sleep(1)
+        status_placeholder.empty()
 
         if not all_documents:
-            with st.container():
+            status_placeholder = st.empty()
+            with status_placeholder.container():
                 st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
+            time.sleep(1)
+            status_placeholder.empty()
             return None
 
-        with st.container():
+        status_placeholder = st.empty()
+        with status_placeholder.container():
             st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+        time.sleep(1)
+        status_placeholder.empty()
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         split_documents = text_splitter.split_documents(all_documents)
@@ -83,8 +108,11 @@ def setup_rag_system():
             persist_directory=db_path
         )
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        with st.container():
+        status_placeholder = st.empty()
+        with status_placeholder.container():
             st.success("Veritabanı başarıyla oluşturuldu.")
+        time.sleep(1)
+        status_placeholder.empty()
         return retriever
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
@@ -93,8 +121,11 @@ st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
 if "status_shown" not in st.session_state:
     st.session_state.status_shown = False
 if not st.session_state.status_shown:
-    with st.container():
+    status_placeholder = st.empty()
+    with status_placeholder.container():
         st.info("Sistem başlatılıyor...")
+    time.sleep(1)
+    status_placeholder.empty()
     st.session_state.status_shown = True
 
 st.title("🏆 Yarışma Asistanı")
@@ -177,5 +208,8 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    with st.container():
+    status_placeholder = st.empty()
+    with status_placeholder.container():
         st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+    time.sleep(1)
+    status_placeholder.empty()
