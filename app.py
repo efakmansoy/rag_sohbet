@@ -26,7 +26,7 @@ def setup_rag_system():
     if "status_shown" not in st.session_state:
         st.session_state.status_shown = False
     if not st.session_state.status_shown:
-        with st.sidebar:
+        with st.container():
             st.info("Sistem başlatılıyor...")
         st.session_state.status_shown = True
         
@@ -40,37 +40,37 @@ def setup_rag_system():
                     persist_directory=db_path
                 )
                 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-                with st.sidebar:
+                with st.container():
                     st.success("Veritabanı başarıyla yüklendi.")
                 return retriever
             except Exception as e:
-                with st.sidebar:
+                with st.container():
                     st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
                 
-        with st.sidebar:
+        with st.container():
             st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
         
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         all_documents = []
         if pdf_files:
             for file_path in pdf_files:
-                with st.sidebar:
+                with st.container():
                     st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
 
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-        with st.sidebar:
+        with st.container():
             st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
         all_documents.extend(web_loader.load())
 
         if not all_documents:
-            with st.sidebar:
+            with st.container():
                 st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
             return None
 
-        with st.sidebar:
+        with st.container():
             st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -83,11 +83,19 @@ def setup_rag_system():
             persist_directory=db_path
         )
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        with st.sidebar:
+        with st.container():
             st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
+
+# Durum mesajları için sabit üst container
+if "status_shown" not in st.session_state:
+    st.session_state.status_shown = False
+if not st.session_state.status_shown:
+    with st.container():
+        st.info("Sistem başlatılıyor...")
+    st.session_state.status_shown = True
 
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
@@ -100,8 +108,6 @@ if "llm" not in st.session_state:
     st.session_state.llm = None
 if "memory" not in st.session_state:
     st.session_state.memory = None
-if "status_shown" not in st.session_state:
-    st.session_state.status_shown = False
 
 # Sohbet alanı
 chat_container = st.container()
@@ -171,5 +177,5 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    with st.sidebar:
+    with st.container():
         st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
