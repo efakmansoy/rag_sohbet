@@ -49,12 +49,17 @@ def setup_rag_system():
                 st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
                 
         st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
-        
+        image_files = glob.glob(os.path.join(files_dir, "*.png")) + glob.glob(os.path.join(files_dir, "*.jpg"))
         # PDF ve resim dosyalarını yükle
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
-        image_files = glob.glob(os.path.join(files_dir, "*.png")) + glob.glob(os.path.join(files_dir, "*.jpg"))
-        all_documents = []
         
+        all_documents = []
+        if image_files:
+            for file_path in image_files:
+                st.info(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
+                # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
+                loader = UnstructuredImageLoader(file_path)
+                all_documents.extend(loader.load())
         if pdf_files:
             for file_path in pdf_files:
                 st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
@@ -62,12 +67,7 @@ def setup_rag_system():
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
 
-        if image_files:
-            for file_path in image_files:
-                st.info(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
-                # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
-                loader = UnstructuredImageLoader(file_path)
-                all_documents.extend(loader.load())
+        
 
         # Web sayfasını yükle
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
@@ -177,4 +177,5 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
 
