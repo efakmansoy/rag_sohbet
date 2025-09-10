@@ -54,19 +54,19 @@ def setup_rag_system():
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         
         all_documents = []
-        
-        if pdf_files:
-            for file_path in pdf_files:
-                print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
-                # Metin PDF'leri için PyPDFLoader kullanın
-                loader = PyPDFLoader(file_path)
-                all_documents.extend(loader.load())
         if image_files:
             for file_path in image_files:
                 print(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
                 # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
                 loader = UnstructuredImageLoader(file_path)
                 all_documents.extend(loader.load())
+        if pdf_files:
+            for file_path in pdf_files:
+                print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+                # Metin PDF'leri için PyPDFLoader kullanın
+                loader = PyPDFLoader(file_path)
+                all_documents.extend(loader.load())
+        
         
 
         # Web sayfasını yükle
@@ -93,7 +93,7 @@ def setup_rag_system():
             collection_name="parent_child_collection",
             persist_directory=db_path
         )
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 25})
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 30})
         print("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
@@ -177,6 +177,7 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
 
 
 
