@@ -3,7 +3,6 @@ import glob
 import streamlit as st
 import sys
 import pysqlite3
-import time
 
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
@@ -23,78 +22,45 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
     
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.info("Sistem başlatılıyor...")
-    time.sleep(1)
-    status_placeholder.empty()
+    st.info("Sistem başlatılıyor...")
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
     if os.path.exists(db_path) and os.path.isdir(db_path):
         try:
-            status_placeholder = st.empty()
-            with status_placeholder.container():
-                st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+            st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
             vectorstore = Chroma(
                 collection_name="parent_child_collection",
                 embedding_function=embeddings,
                 persist_directory=db_path
             )
-            retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-            status_placeholder = st.empty()
-            with status_placeholder.container():
-                st.success("Veritabanı başarıyla yüklendi.")
-            time.sleep(1)
-            status_placeholder.empty()
+           
+            retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
+            st.success("Veritabanı başarıyla yüklendi.")
             return retriever
         except Exception as e:
-            status_placeholder = st.empty()
-            with status_placeholder.container():
-                st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
-            time.sleep(1)
-            status_placeholder.empty()
+            st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
             
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
-    time.sleep(1)
-    status_placeholder.empty()
+    st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
     
     pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
     all_documents = []
     if pdf_files:
         for file_path in pdf_files:
-            status_placeholder = st.empty()
-            with status_placeholder.container():
-                st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+            st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
             loader = PyPDFLoader(file_path)
             all_documents.extend(loader.load())
-            time.sleep(1)
-            status_placeholder.empty()
 
     web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
+    st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
     web_loader = WebBaseLoader(web_url)
     all_documents.extend(web_loader.load())
-    time.sleep(1)
-    status_placeholder.empty()
 
     if not all_documents:
-        status_placeholder = st.empty()
-        with status_placeholder.container():
-            st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
-        time.sleep(1)
-        status_placeholder.empty()
+        st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
         return None
 
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
-    time.sleep(1)
-    status_placeholder.empty()
+    st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
     
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     split_documents = text_splitter.split_documents(all_documents)
@@ -105,12 +71,8 @@ def setup_rag_system():
         collection_name="parent_child_collection",
         persist_directory=db_path
     )
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.success("Veritabanı başarıyla oluşturuldu.")
-    time.sleep(1)
-    status_placeholder.empty()
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
+    st.success("Veritabanı başarıyla oluşturuldu.")
     return retriever
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
@@ -144,6 +106,7 @@ if retriever:
             return_messages=True
         )
         
+        # Güncellenmiş Prompt
         custom_prompt_template = """
 Sen, TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması hakkında öğrenci ve danışmanlara yardımcı olan bir asistansın. Görevin, onlara yarışmanın şartnameleri, başvuru ve rapor süreçleri gibi konularda, **sadece verilen belgelerden edindiğin bilgilere dayanarak** rehberlik etmektir.
 Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış.  Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
@@ -191,8 +154,4 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    status_placeholder = st.empty()
-    with status_placeholder.container():
-        st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
-    time.sleep(1)
-    status_placeholder.empty()
+    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
