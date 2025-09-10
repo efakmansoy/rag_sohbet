@@ -55,7 +55,7 @@ def setup_rag_system():
             for file_path in pdf_files:
                 st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 # PyPDFLoader yerine UnstructuredPDFLoader kullanın
-                loader = UnstructuredPDFLoader(file_path, mode="elements", strategy="hi_res")
+                loader = UnstructuredPDFLoader(file_path, mode="elements", strategy="fast")
                 all_documents.extend(loader.load())
 
         # Web sayfasını yükle
@@ -163,3 +163,4 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
