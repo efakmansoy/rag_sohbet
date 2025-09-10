@@ -10,3 +10,4 @@ pypdf
 chromadb
 typing-extensions>=4.6.0
 pysqlite3-binary
+bs4
