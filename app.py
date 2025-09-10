@@ -4,8 +4,10 @@ import streamlit as st
 import sys
 import pysqlite3
 
+# pysqlite3'ü sistemin varsayılan sqlite3'ü olarak ayarla
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
+# Gerekli kütüphaneleri içe aktarın
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -16,6 +18,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationSummaryMemory
 from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_community.vectorstores.utils import filter_complex_metadata
 
 # --- RAG Sisteminin Hazırlanması ---
 @st.cache_resource
@@ -72,9 +75,12 @@ def setup_rag_system():
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         split_documents = text_splitter.split_documents(all_documents)
+        
+        # Karmaşık meta verileri filtreleyin
+        filtered_documents = filter_complex_metadata(split_documents)
 
         vectorstore = Chroma.from_documents(
-            documents=split_documents,
+            documents=filtered_documents,
             embedding=embeddings,
             collection_name="parent_child_collection",
             persist_directory=db_path
@@ -163,4 +169,3 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
-
