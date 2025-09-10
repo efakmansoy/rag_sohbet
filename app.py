@@ -17,13 +17,16 @@ from langchain.memory import ConversationSummaryMemory
 from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
 
+# --- RAG Sisteminin Hazırlanması ---
 @st.cache_resource
 def setup_rag_system():
-    # Bu kısım sadece yükleme ve veritabanı mesajlarını içerir
-    with st.container():
-        db_path = "./chroma_db"
-        files_dir = "./files"
-        
+    db_path = "./chroma_db"
+    files_dir = "./files"
+    
+    # Tüm durum mesajlarını içeren kalıcı bir kapsayıcı oluşturun
+    info_container = st.empty()
+    
+    with info_container.container():
         st.info("Sistem başlatılıyor...")
 
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -101,7 +104,7 @@ retriever = setup_rag_system()
 if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             temperature=0.7,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
@@ -110,6 +113,7 @@ if retriever:
             memory_key="chat_history", 
             return_messages=True
         )
+        
         
         custom_prompt_template = """
 Sen, TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması hakkında öğrenci ve danışmanlara yardımcı olan bir asistansın. Görevin, onlara yarışmanın şartnameleri, başvuru ve rapor süreçleri gibi konularda, **sadece verilen belgelerden edindiğin bilgilere dayanarak** rehberlik etmektir.
@@ -159,3 +163,4 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+
