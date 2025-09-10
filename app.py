@@ -22,13 +22,13 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
     
-    st.info("Sistem başlatılıyor...")
+    print("Sistem başlatılıyor...")
 
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     
     if os.path.exists(db_path) and os.path.isdir(db_path):
         try:
-            st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
+            print("Mevcut veritabanı bulunuyor. Yükleniyor...")
             vectorstore = Chroma(
                 collection_name="parent_child_collection",
                 embedding_function=embeddings,
@@ -36,31 +36,31 @@ def setup_rag_system():
             )
            
             retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
-            st.success("Veritabanı başarıyla yüklendi.")
+            print("Veritabanı başarıyla yüklendi.")
             return retriever
         except Exception as e:
-            st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
+            print(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
             
-    st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+    print("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
     
     pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
     all_documents = []
     if pdf_files:
         for file_path in pdf_files:
-            st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+            print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
             loader = PyPDFLoader(file_path)
             all_documents.extend(loader.load())
 
     web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-    st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
+    print(f"'{web_url}' adresindeki sayfa yükleniyor...")
     web_loader = WebBaseLoader(web_url)
     all_documents.extend(web_loader.load())
 
     if not all_documents:
-        st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
+        print("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
         return None
 
-    st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
+    print(f"Toplam {len(all_documents)} sayfa yüklendi.")
     
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     split_documents = text_splitter.split_documents(all_documents)
@@ -155,4 +155,5 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+
 
