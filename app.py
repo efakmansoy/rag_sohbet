@@ -101,7 +101,7 @@ if retriever:
             # Model, transformers pipeline ile yükleniyor
             pipe = pipeline(
                 "text-generation", 
-                model="deepseek-ai/DeepSeek-R1",
+                model="deepseek-ai/DeepSeek-V3.1",
                 trust_remote_code=True,
                 device_map="auto"
             )
@@ -166,3 +166,4 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve modelin doğru yüklendiğinden emin olun.")
+
