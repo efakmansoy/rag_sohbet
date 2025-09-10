@@ -56,13 +56,13 @@ def setup_rag_system():
         all_documents = []
         if image_files:
             for file_path in image_files:
-                print(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
+                st.success(f"'{os.path.basename(file_path)}' resim dosyası yükleniyor...")
                 # Resim dosyalarından metin çıkarmak için UnstructuredImageLoader kullanın
                 loader = UnstructuredImageLoader(file_path)
                 all_documents.extend(loader.load())
         if pdf_files:
             for file_path in pdf_files:
-                print(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
+                st.success(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 # Metin PDF'leri için PyPDFLoader kullanın
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
@@ -177,6 +177,7 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların olduğundan emin olun.")
+
 
 
 
