@@ -4,11 +4,12 @@ import streamlit as st
 import sys
 import pysqlite3
 
+# SQLite modülünü pysqlite3 ile değiştirme
 sys.modules["sqlite3"] = sys.modules["pysqlite3"]
 
-from langchain_huggingface import HuggingFaceEmbeddings
+# Gerekli LangChain kütüphanelerini ve transformers'ı içe aktarma
+from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
 from langchain_chroma import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI
 from chromadb.config import Settings
 from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -16,6 +17,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationSummaryMemory
 from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
+from transformers import pipeline
 
 @st.cache_resource
 def setup_rag_system():
@@ -34,7 +36,7 @@ def setup_rag_system():
                 embedding_function=embeddings,
                 persist_directory=db_path
             )
-           
+            
             retriever = vectorstore.as_retriever(search_kwargs={"k": 20})
             print("Veritabanı başarıyla yüklendi.")
             return retriever
@@ -95,21 +97,30 @@ for message in st.session_state.messages:
 retriever = setup_rag_system()
 if retriever:
     if st.session_state.qa_chain is None:
-        st.session_state.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-lite",
-            temperature=0.7,
-            google_api_key=os.environ.get("GOOGLE_API_KEY")
-        )
+        try:
+            # Model, transformers pipeline ile yükleniyor
+            pipe = pipeline(
+                "text-generation", 
+                model="deepseek-ai/DeepSeek-R1",
+                trust_remote_code=True,
+                device_map="auto"
+            )
+            # LangChain için HuggingFacePipeline sarmalayıcısı kullanılıyor
+            st.session_state.llm = HuggingFacePipeline(pipeline=pipe)
+        except Exception as e:
+            st.error(f"Model yüklenirken bir hata oluştu: {e}")
+            st.warning("Lütfen yeterli VRAM ve RAM'e sahip olduğunuzdan emin olun. Bu modeller çok büyük olabilir.")
+            st.stop()
+
         st.session_state.memory = ConversationSummaryMemory(
             llm=st.session_state.llm,
             memory_key="chat_history", 
             return_messages=True
         )
         
-        # Güncellenmiş Prompt
         custom_prompt_template = """
 Sen, TÜBİTAK 2204-A Lise Öğrencileri Araştırma Projeleri Yarışması hakkında öğrenci ve danışmanlara yardımcı olan bir asistansın. Görevin, onlara yarışmanın şartnameleri, başvuru ve rapor süreçleri gibi konularda, **sadece verilen belgelerden edindiğin bilgilere dayanarak** rehberlik etmektir.
-Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış.  Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
+Eğer verilen bağlamda sorunun cevabı yoksa, elindeki bilgilere göre en mantıklı yanıtı üretmeye çalış. Kesinlikle uydurma bilgi verme. Yanıtların profesyonel, anlaşılır ve yarışma konusuna odaklı olsun.
 Öneriler ve tavsiyeler verirken, TÜBİTAK'ın resmi politikalarına ve yönergelerine uygun olmasına dikkat et. Öneri verirken yaratıcı ol ve verilen belgeleri kullanmak zorunda değilsin sadece öneri verirken.
 
 Konuşma Geçmişi:
@@ -154,7 +165,4 @@ Yardımcı Asistanın Cevabı:
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
-
-
-
+    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve modelin doğru yüklendiğinden emin olun.")
