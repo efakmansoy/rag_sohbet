@@ -22,54 +22,52 @@ def setup_rag_system():
     db_path = "./chroma_db"
     files_dir = "./files"
     
-    status_container = st.container()
+    # Durum mesajlarını sabit bir container'a yaz
+    status_container = st.empty()
     
-    with status_container:
+    with status_container.container():
         st.info("Sistem başlatılıyor...")
-
+        
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         
         if os.path.exists(db_path) and os.path.isdir(db_path):
             try:
-                with status_container:
-                    st.info("Mevcut veritabanı bulunuyor. Yükleniyor...")
                 vectorstore = Chroma(
                     collection_name="parent_child_collection",
                     embedding_function=embeddings,
                     persist_directory=db_path
                 )
                 retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-                with status_container:
+                with status_container.container():
                     st.success("Veritabanı başarıyla yüklendi.")
                 return retriever
             except Exception as e:
-                with status_container:
+                with status_container.container():
                     st.warning(f"Veritabanı yüklenirken bir hata oluştu: {e}. Yeniden oluşturuluyor...")
                 
-        with status_container:
-            st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
+        st.info("Veritabanı bulunamadı veya yüklenemedi. Yeni bir veritabanı oluşturuluyor...")
         
         pdf_files = glob.glob(os.path.join(files_dir, "*.pdf"))
         all_documents = []
         if pdf_files:
             for file_path in pdf_files:
-                with status_container:
+                with status_container.container():
                     st.info(f"'{os.path.basename(file_path)}' dosyası yükleniyor...")
                 loader = PyPDFLoader(file_path)
                 all_documents.extend(loader.load())
 
         web_url = "https://tubitak.gov.tr/tr/yarismalar/2204-lise-ogrencileri-arastirma-projeleri-yarismasi"
-        with status_container:
+        with status_container.container():
             st.info(f"'{web_url}' adresindeki sayfa yükleniyor...")
         web_loader = WebBaseLoader(web_url)
         all_documents.extend(web_loader.load())
 
         if not all_documents:
-            with status_container:
+            with status_container.container():
                 st.error("Hiçbir belge (PDF veya web sayfası) yüklenemedi. Lütfen dosyalarınızın doğru klasörde olduğundan ve URL'nin doğru olduğundan emin olun.")
             return None
 
-        with status_container:
+        with status_container.container():
             st.success(f"Toplam {len(all_documents)} sayfa yüklendi.")
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -82,11 +80,16 @@ def setup_rag_system():
             persist_directory=db_path
         )
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
-        with status_container:
+        with status_container.container():
             st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
+
+# Durum mesajları için sabit üst container
+status_container = st.empty()
+with status_container.container():
+    st.info("Sistem başlatılıyor...")  # İlk yükleme mesajı
 
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
@@ -100,9 +103,12 @@ if "llm" not in st.session_state:
 if "memory" not in st.session_state:
     st.session_state.memory = None
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Sohbet mesajları için ayrı bir alan
+chat_container = st.container()
+with chat_container:
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 retriever = setup_rag_system()
 if retriever:
@@ -154,15 +160,16 @@ Yardımcı Asistanın Cevabı:
 
     if prompt := st.chat_input("Buraya yazın..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with chat_container.chat_message("user"):
             st.markdown(prompt)
 
         with st.spinner("Cevap bekleniyor..."):
             result = st.session_state.qa_chain.invoke({"question": prompt})
             response = result["answer"]
             
-        with st.chat_message("assistant"):
+        with chat_container.chat_message("assistant"):
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
-    st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+    with status_container.container():
+        st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
