@@ -17,14 +17,10 @@ from langchain.memory import ConversationSummaryMemory
 from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
 
-# --- RAG Sisteminin Hazırlanması ---
 @st.cache_resource
 def setup_rag_system():
-    # Bu blok, yükleme mesajlarının kalıcı bir alanda kalmasını sağlar.
+    # Bu kısım sadece yükleme ve veritabanı mesajlarını içerir
     with st.container():
-        st.title("🏆 Yarışma Asistanı")
-        st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
-
         db_path = "./chroma_db"
         files_dir = "./files"
         
@@ -80,7 +76,12 @@ def setup_rag_system():
         st.success("Veritabanı başarıyla oluşturuldu.")
         return retriever
 
+# --- Streamlit Arayüzü ---
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
+
+# Başlık ve açıklama, her zaman sabit kalacak şekilde buraya alındı
+st.title("🏆 Yarışma Asistanı")
+st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -91,6 +92,7 @@ if "llm" not in st.session_state:
 if "memory" not in st.session_state:
     st.session_state.memory = None
 
+# Yalnızca mesajlar buraya yazdırılır
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
