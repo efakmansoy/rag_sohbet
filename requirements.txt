@@ -4,7 +4,7 @@ langchain-community
 langchain-text-splitters
 langchain-huggingface
 langchain-chroma
-langchain-google-genai==0.0.12  # Uyumlu olduğu bilinen bir sürüm denemesi
+langchain-google-genai==0.0.11  # Uyumlu olduğu bilinen bir sürüm denemesi
 langchain_huggingface
 sentence-transformers
 pypdf
