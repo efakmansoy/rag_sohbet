@@ -6,7 +6,9 @@ from datasets import load_dataset
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-
+import os
+# ChromaDB telemetry'yi devre dışı bırak
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # Model Konfigürasyonu
@@ -357,5 +359,6 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların çalıştığından emin olun.")
+
 
 
