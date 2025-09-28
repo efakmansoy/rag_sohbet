@@ -15,3 +15,4 @@ bs4
 accelerate
 transformers
 unstructured[pdf,image]
+datasets
