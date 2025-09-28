@@ -8,6 +8,10 @@ import os
 import glob
 from typing import Optional, List, Tuple, Dict, Any
 
+# ChromaDB telemetry'yi devre dışı bırak (deploy ortamları için)
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_SERVER_NOFILE"] = "1"
+
 # Üçüncü Parti İmportları
 import torch
 import pandas as pd
