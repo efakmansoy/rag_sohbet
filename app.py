@@ -3,6 +3,11 @@ TÜBİTAK 2204-A Yarışma Asistanı - Streamlit Arayüzü
 RAG Core sistemini kullanan web arayüzü
 """
 
+# ChromaDB telemetry'yi devre dışı bırak (deploy ortamları için)
+import os
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_SERVER_NOFILE"] = "1"
+
 # Third Party Imports
 import streamlit as st
 
