@@ -1,4 +1,6 @@
 import os
+# ChromaDB telemetry'yi devre dışı bırak
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 import glob
 import streamlit as st
 import sys
