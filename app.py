@@ -85,7 +85,7 @@ retriever = setup_rag_system()
 if retriever:
     if st.session_state.qa_chain is None:
         st.session_state.llm = ChatGoogleGenerativeAI(
-            model="gemma-3-27b-it",
+            model="gemini-2.5-flash-lite",
             temperature=0.5,
             google_api_key=os.environ.get("GOOGLE_API_KEY")
         )
@@ -144,5 +144,6 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların ve Ollama'nın çalıştığından emin olun.")
+
 
 
