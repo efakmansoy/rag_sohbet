@@ -167,7 +167,6 @@ def setup_dataset_vectorstore(embeddings, dataset_db_path):
                 persist_directory=dataset_db_path
             )
             st.write("[DEBUG] Dataset vektör veritabanı başarıyla yüklendi!")
-            st.info("Dataset vektör veritabanı başarıyla yüklendi.")
             return dataset_vectorstore
         except Exception as e:
             st.write(f"[DEBUG] Dataset veritabanı yüklenirken hata: {e}")
@@ -375,6 +374,7 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların çalıştığından emin olun.")
+
 
 
 
