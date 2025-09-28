@@ -6,9 +6,7 @@ from datasets import load_dataset
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
-import os
-# ChromaDB telemetry'yi devre dışı bırak
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # Model Konfigürasyonu
@@ -26,17 +24,22 @@ from langchain.prompts import PromptTemplate
 from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain.schema import Document
 
+def debug_write(message):
+    """Debug mesajı yazdır (sadece debug mode açıkken)"""
+    if hasattr(st.session_state, 'debug_mode') and st.session_state.debug_mode:
+        st.write(message)
+
 @st.cache_resource
 def load_classifier_model():
     """Fikir klasifikasyon modelini yükle"""
     try:
-        print(f"[DEBUG] Classifier model yükleniyor: {CLASSIFIER_MODEL}")
+        debug_write(f"[DEBUG] Classifier model yükleniyor: {CLASSIFIER_MODEL}")
         tokenizer = AutoTokenizer.from_pretrained(CLASSIFIER_MODEL)
         model = AutoModelForSequenceClassification.from_pretrained(CLASSIFIER_MODEL)
-        print("[DEBUG] Classifier model başarıyla yüklendi!")
+        debug_write("[DEBUG] Classifier model başarıyla yüklendi!")
         return tokenizer, model
     except Exception as e:
-        print(f"[DEBUG] Classifier model yüklenirken hata: {e}")
+        st.write(f"[DEBUG] Classifier model yüklenirken hata: {e}")
         st.error(f"Klasifikasyon modeli yüklenirken hata oluştu: {e}")
         return None, None
 
@@ -61,29 +64,29 @@ def classify_question(question, tokenizer, model):
 def get_example_projects(dataset_db_path, embeddings, question, k=4):
     """Dataset'ten örnek projeler getir"""
     try:
-        print(f"[DEBUG] Dataset'ten örnek projeler getiriliyor... Yol: {dataset_db_path}")
+        st.write(f"[DEBUG] Dataset'ten örnek projeler getiriliyor... Yol: {dataset_db_path}")
         dataset_vectorstore = Chroma(
             collection_name="dataset_collection",
             embedding_function=embeddings,
             persist_directory=dataset_db_path
         )
         
-        print(f"[DEBUG] Similarity search yapılıyor, k={k}")
+        st.write(f"[DEBUG] Similarity search yapılıyor, k={k}")
         # Soruya benzer projeleri bul
         docs = dataset_vectorstore.similarity_search(question, k=k)
         
         if docs:
-            print(f"[DEBUG] {len(docs)} benzer proje bulundu")
+            st.write(f"[DEBUG] {len(docs)} benzer proje bulundu")
             examples = "\n\nÖrnek Projeler:\n"
             for i, doc in enumerate(docs, 1):
                 examples += f"{i}. {doc.page_content}\n---\n"
-            print(f"[DEBUG] Örnek projeler hazırlandı, toplam uzunluk: {len(examples)} karakter")
+            st.write(f"[DEBUG] Örnek projeler hazırlandı, toplam uzunluk: {len(examples)} karakter")
             return examples
         else:
-            print("[DEBUG] Hiç benzer proje bulunamadı")
+            st.write("[DEBUG] Hiç benzer proje bulunamadı")
             return ""
     except Exception as e:
-        print(f"[DEBUG] Örnek projeler getirilirken hata: {e}")
+        st.write(f"[DEBUG] Örnek projeler getirilirken hata: {e}")
         st.warning(f"Örnek projeler getirilirken hata oluştu: {e}")
         return ""
 
@@ -93,7 +96,7 @@ def setup_rag_system():
     dataset_db_path = "./dataset_chroma_db"
     files_dir = "./files"
     
-    print(f"[DEBUG] Embedding model yükleniyor: {EMBEDDING_MODEL}")
+    st.write(f"[DEBUG] Embedding model yükleniyor: {EMBEDDING_MODEL}")
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     
     # Ana RAG sistemi (PDF + Web) yükleme
@@ -150,44 +153,44 @@ def create_main_vectorstore(embeddings, files_dir, db_path):
 
 def setup_dataset_vectorstore(embeddings, dataset_db_path):
     """Dataset vektör veritabanını yükle/oluştur"""
-    print(f"[DEBUG] Dataset veritabanı kontrol ediliyor: {dataset_db_path}")
+    st.write(f"[DEBUG] Dataset veritabanı kontrol ediliyor: {dataset_db_path}")
     
     if os.path.exists(dataset_db_path) and os.path.isdir(dataset_db_path):
         try:
-            print("[DEBUG] Mevcut dataset veritabanı bulundu, yükleniyor...")
+            st.write("[DEBUG] Mevcut dataset veritabanı bulundu, yükleniyor...")
             # Mevcut dataset veritabanını yükle
             dataset_vectorstore = Chroma(
                 collection_name="dataset_collection",
                 embedding_function=embeddings,
                 persist_directory=dataset_db_path
             )
-            print("[DEBUG] Dataset vektör veritabanı başarıyla yüklendi!")
+            st.write("[DEBUG] Dataset vektör veritabanı başarıyla yüklendi!")
             st.info("Dataset vektör veritabanı başarıyla yüklendi.")
             return dataset_vectorstore
         except Exception as e:
-            print(f"[DEBUG] Dataset veritabanı yüklenirken hata: {e}")
+            st.write(f"[DEBUG] Dataset veritabanı yüklenirken hata: {e}")
             st.warning(f"Dataset veritabanı yüklenirken hata oluştu: {e}. Yeniden oluşturuluyor...")
     
     # Dataset veritabanını oluştur
-    print("[DEBUG] Dataset veritabanı oluşturuluyor...")
+    st.write("[DEBUG] Dataset veritabanı oluşturuluyor...")
     try:
-        print(f"[DEBUG] HuggingFace'den dataset yükleniyor: {DATASET_NAME}")
+        st.write(f"[DEBUG] HuggingFace'den dataset yükleniyor: {DATASET_NAME}")
         st.info("Dataset yükleniyor...")
         dataset = load_dataset(DATASET_NAME)
-        print(f"[DEBUG] Dataset yüklendi! Train boyutu: {len(dataset['train'])}")
+        st.write(f"[DEBUG] Dataset yüklendi! Train boyutu: {len(dataset['train'])}")
         
         # Dataset yapısını kontrol et
         if len(dataset['train']) > 0:
             first_item = dataset['train'][0]
-            print(f"[DEBUG] Dataset sütunları: {list(first_item.keys())}")
+            st.write(f"[DEBUG] Dataset sütunları: {list(first_item.keys())}")
             st.info(f"Dataset sütunları: {list(first_item.keys())}")
         
-        print("[DEBUG] Dataset'i Document formatına dönüştürülüyor...")
+        st.write("[DEBUG] Dataset'i Document formatına dönüştürülüyor...")
         # Dataset'i Document formatına dönüştür
         documents = []
         for i, item in enumerate(dataset['train']):
             if i % 1000 == 0:  # Her 1000 projede bir rapor
-                print(f"[DEBUG] İşlenen proje sayısı: {i}/{len(dataset['train'])}")
+                st.write(f"[DEBUG] İşlenen proje sayısı: {i}/{len(dataset['train'])}")
             
             # Sütun adlarını kontrol et ve güvenli erişim
             try:
@@ -216,20 +219,20 @@ Proje İsmi: {proje_ismi}
                 )
                 documents.append(doc)
             except Exception as item_error:
-                print(f"[DEBUG] Proje işlenirken hata (item {i}): {item_error}")
+                st.write(f"[DEBUG] Proje işlenirken hata (item {i}): {item_error}")
                 st.warning(f"Bir proje işlenirken hata oluştu: {item_error}")
                 continue
         
-        print(f"[DEBUG] Toplam {len(documents)} proje Document formatına dönüştürüldü")
+        st.write(f"[DEBUG] Toplam {len(documents)} proje Document formatına dönüştürüldü")
         
         # Text splitter uygula
-        print("[DEBUG] Text splitter uygulanıyor...")
+        st.write("[DEBUG] Text splitter uygulanıyor...")
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=80)
         split_documents = text_splitter.split_documents(documents)
-        print(f"[DEBUG] {len(split_documents)} chunk oluşturuldu")
+        st.write(f"[DEBUG] {len(split_documents)} chunk oluşturuldu")
         
         # Vektör veritabanını oluştur
-        print("[DEBUG] ChromaDB vektör veritabanı oluşturuluyor...")
+        st.write("[DEBUG] ChromaDB vektör veritabanı oluşturuluyor...")
         dataset_vectorstore = Chroma.from_documents(
             documents=split_documents,
             embedding=embeddings,
@@ -237,18 +240,28 @@ Proje İsmi: {proje_ismi}
             persist_directory=dataset_db_path
         )
         
-        print(f"[DEBUG] Dataset başarıyla işlendi! {len(documents)} proje, {len(split_documents)} chunk eklendi")
+        st.write(f"[DEBUG] Dataset başarıyla işlendi! {len(documents)} proje, {len(split_documents)} chunk eklendi")
         st.success(f"Dataset başarıyla işlendi! {len(documents)} proje eklendi.")
         return dataset_vectorstore
         
     except Exception as e:
-        print(f"[DEBUG] Dataset yüklenirken ana hata: {e}")
+        st.write(f"[DEBUG] Dataset yüklenirken ana hata: {e}")
         st.error(f"Dataset yüklenirken hata oluştu: {e}")
         return None
 
 st.set_page_config(page_title="Yarışma Asistanı", layout="wide")
 st.title("🏆 Yarışma Asistanı")
 st.write("Şartnameler ve raporlar hakkında sorularınızı sorun.")
+
+# Sidebar'a debug kontrolleri ekle
+with st.sidebar:
+    st.header("🔧 Debug Ayarları")
+    debug_mode = st.checkbox("Debug Modunu Aç", value=False)
+    st.session_state.debug_mode = debug_mode
+    if debug_mode:
+        st.info("Debug mesajları ana sayfada görünecek.")
+    else:
+        st.info("Debug mesajları gizlendi.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -326,29 +339,29 @@ Yardımcı Asistanın Cevabı:
             st.markdown(prompt)
 
         with st.spinner("Cevap bekleniyor..."):
-            print(f"[DEBUG] Kullanıcı sorusu: {prompt}")
+            debug_write(f"[DEBUG] Kullanıcı sorusu: {prompt}")
             
             # Soruyu sınıflandır
-            print("[DEBUG] Soru sınıflandırılıyor...")
+            debug_write("[DEBUG] Soru sınıflandırılıyor...")
             classification = classify_question(
                 prompt, 
                 st.session_state.classifier_tokenizer, 
                 st.session_state.classifier_model
             )
-            print(f"[DEBUG] Sınıflandırma sonucu: {classification}")
+            debug_write(f"[DEBUG] Sınıflandırma sonucu: {classification}")
             
             # Eğer fikir içeren bir soru ise (1), dataset'ten örnekler ekle
             if classification == 1:
-                print("[DEBUG] Fikir içeren soru tespit edildi, örnek projeler getiriliyor...")
+                debug_write("[DEBUG] Fikir içeren soru tespit edildi, örnek projeler getiriliyor...")
                 embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
                 example_projects = get_example_projects("./dataset_chroma_db", embeddings, prompt, k=3)
                 
                 # Prompt'u örneklerle genişlet
-                enhanced_prompt = prompt + example_projects
-                print(f"[DEBUG] Prompt örnek projelerle genişletildi. Yeni uzunluk: {len(enhanced_prompt)} karakter")
+                enhanced_prompt = prompt + "Daha önce başarılı olmuş projeler: \n" + example_projects
+                debug_write(f"[DEBUG] Prompt örnek projelerle genişletildi. Yeni uzunluk: {len(enhanced_prompt)} karakter")
                 result = st.session_state.qa_chain.invoke({"question": enhanced_prompt})
             else:
-                print("[DEBUG] Normal soru, örnek proje eklenmeyecek")
+                debug_write("[DEBUG] Normal soru, örnek proje eklenmeyecek")
                 # Normal prompt ile devam et
                 result = st.session_state.qa_chain.invoke({"question": prompt})
             
@@ -359,6 +372,5 @@ Yardımcı Asistanın Cevabı:
             st.session_state.messages.append({"role": "assistant", "content": response})
 else:
     st.error("Proje başlatılamıyor. Lütfen gerekli dosyaların çalıştığından emin olun.")
-
 
 
